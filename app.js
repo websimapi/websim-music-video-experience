@@ -7,7 +7,7 @@ let currentImageIndex = 0;
 let progressInterval;
 let generatingComplete = false;
 
-// Initialize when YouTube API is ready
+// Make the YouTube callback function globally accessible
 window.onYouTubeIframeAPIReady = function() {
   player = new YT.Player('youtube-player', {
     height: '100%',
@@ -153,4 +153,3 @@ function displayFallingImage(imageUrl, text) {
     img.remove();
   }, config.imageDisplayDuration);
 }
-
