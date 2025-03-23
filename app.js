@@ -13,18 +13,45 @@ document.getElementById('start-button').addEventListener('click', async () => {
   document.getElementById('start-screen').style.display = 'none';
   document.getElementById('loading-screen').style.display = 'flex';
   
-  await generateImages();
-  
-  document.getElementById('loading-screen').style.display = 'none';
-  document.getElementById('video-container').style.display = 'block';
-  
-  // Setup the video player
-  setupCustomVideoPlayer();
+  try {
+    await generateImages();
+    
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('video-container').style.display = 'block';
+    
+    // Setup the video player
+    setupCustomVideoPlayer();
+  } catch (error) {
+    console.error("Error during initialization:", error);
+    document.getElementById('status-text').innerText = 'An error occurred. Please refresh and try again.';
+  }
 });
 
 // Setup a custom video player instead of YouTube iframe
 function setupCustomVideoPlayer() {
   const videoContainer = document.getElementById('video-player');
+  
+  // Create play button overlay
+  const playButtonOverlay = document.createElement('div');
+  playButtonOverlay.id = 'play-button-overlay';
+  playButtonOverlay.innerHTML = `
+    <button id="play-video-button">
+      <svg width="50" height="50" viewBox="0 0 24 24">
+        <path fill="#fff" d="M8 5v14l11-7z"/>
+      </svg>
+      <span>Play Video</span>
+    </button>
+  `;
+  playButtonOverlay.style.position = 'absolute';
+  playButtonOverlay.style.top = '0';
+  playButtonOverlay.style.left = '0';
+  playButtonOverlay.style.width = '100%';
+  playButtonOverlay.style.height = '100%';
+  playButtonOverlay.style.display = 'flex';
+  playButtonOverlay.style.justifyContent = 'center';
+  playButtonOverlay.style.alignItems = 'center';
+  playButtonOverlay.style.background = 'rgba(0,0,0,0.7)';
+  playButtonOverlay.style.zIndex = '10';
   
   // Create video element
   videoPlayer = document.createElement('video');
@@ -32,36 +59,37 @@ function setupCustomVideoPlayer() {
   videoPlayer.width = '100%';
   videoPlayer.height = '100%';
   videoPlayer.controls = false;
+  videoPlayer.muted = false;
+  videoPlayer.autoplay = false;
+  videoPlayer.playsInline = true;
   videoPlayer.style.width = '100%';
   videoPlayer.style.height = '100%';
   videoPlayer.style.objectFit = 'cover';
   
-  // Create a source element
+  // Add placeholder background before video plays
+  videoPlayer.style.backgroundColor = '#000';
+  videoPlayer.poster = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" fill="%23000"><rect width="1280" height="720"/><text x="50%" y="50%" font-family="Arial" font-size="24" fill="%23fff" text-anchor="middle">Click to play "Looking Up" by Stick Figure</text></svg>';
+  
+  // Create a source element using direct YouTube video URL
   const source = document.createElement('source');
-  source.src = `https://www.youtube-nocookie.com/embed/${config.videoId}?autoplay=1&showinfo=0&rel=0&fs=1&modestbranding=1`;
+  source.src = `https://www.youtube.com/watch?v=${config.videoId}`;
   source.type = 'video/mp4';
   
   // Error handling for video
   videoPlayer.onerror = function() {
+    console.error("Video playback error");
     // If video fails, show a message and placeholder
     videoContainer.innerHTML = `
       <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: #000;">
         <h2>Video playback unavailable</h2>
         <p style="margin-top: 1rem;">The music visualization will continue with images only.</p>
+        <button id="continue-without-video" style="margin-top: 1rem; padding: 10px 20px; background: #ff0000; color: white; border: none; border-radius: 4px; cursor: pointer;">
+          Continue with Images Only
+        </button>
       </div>
     `;
-    // Start the visualization anyway
-    startVisualization();
-  };
-  
-  // When video is ready to play
-  videoPlayer.onloadeddata = function() {
-    videoPlayer.muted = false;
-    videoPlayer.play().then(() => {
-      startVisualization();
-    }).catch(err => {
-      console.error("Video play failed:", err);
-      // Start visualization anyway
+    
+    document.getElementById('continue-without-video').addEventListener('click', function() {
       startVisualization();
     });
   };
@@ -69,22 +97,37 @@ function setupCustomVideoPlayer() {
   // Append to the container
   videoPlayer.appendChild(source);
   videoContainer.appendChild(videoPlayer);
+  videoContainer.appendChild(playButtonOverlay);
   
-  // Alternative approach if the video doesn't load properly
-  // Create a fallback div that simulates the video timing
-  const fallbackTimer = document.createElement('div');
-  fallbackTimer.style.display = 'none';
-  videoContainer.appendChild(fallbackTimer);
-  
-  // Try to play the video, if it fails use the fallback timer
-  setTimeout(() => {
-    if (!videoStarted) {
-      console.log("Using fallback timer for visualization");
-      fallbackTimer.style.display = 'block';
-      videoPlayer.style.display = 'none';
-      startVisualization();
+  // Play button event listener
+  document.getElementById('play-video-button').addEventListener('click', function() {
+    // Ensure audio context is started
+    if (window.audioContext && window.audioContext.state === 'suspended') {
+      window.audioContext.resume();
     }
-  }, 3000);
+    
+    // Try to play the video
+    videoPlayer.play().then(() => {
+      playButtonOverlay.style.display = 'none';
+      startVisualization();
+    }).catch(err => {
+      console.error("Video play failed:", err);
+      // Show error and option to continue with just images
+      playButtonOverlay.innerHTML = `
+        <div style="text-align: center; color: white;">
+          <p>Unable to play video. You can continue with images only.</p>
+          <button id="continue-with-images" style="margin-top: 15px; padding: 10px 20px; background: #ff0000; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Continue with Images
+          </button>
+        </div>
+      `;
+      
+      document.getElementById('continue-with-images').addEventListener('click', function() {
+        playButtonOverlay.style.display = 'none';
+        startVisualization();
+      });
+    });
+  });
 }
 
 function startVisualization() {
@@ -135,6 +178,12 @@ async function generateImages() {
         
         completedLines++;
         
+        // Update the progress bar immediately
+        const progress = Math.min((completedLines / totalLines) * 100, 95);
+        document.getElementById('progress-bar').style.width = `${progress}%`;
+        document.getElementById('status-text').innerText = 
+          `Generating visualizations... ${completedLines}/${totalLines}`;
+          
         // Rate limit: one image every 3 seconds
         await new Promise(resolve => setTimeout(resolve, config.imageGenRate));
       } catch (error) {
@@ -155,10 +204,12 @@ async function generateImages() {
     
     clearInterval(progressInterval);
     generatingComplete = true;
+    return true;
   } catch (error) {
     console.error('Error in generateImages:', error);
     document.getElementById('status-text').innerText = 'Error generating images. Please try again.';
     clearInterval(progressInterval);
+    throw error;
   }
 }
 

@@ -128,6 +128,61 @@ body {
   animation: fadeInAndFall 8s ease-in-out forwards;
 }
 
+#play-button-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0,0,0,0.7);
+  z-index: 10;
+}
+
+#play-video-button {
+  background-color: rgba(255, 0, 0, 0.8);
+  border: none;
+  border-radius: 50px;
+  color: white;
+  padding: 15px 30px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+}
+
+#play-video-button:hover {
+  background-color: rgb(255, 0, 0);
+  transform: scale(1.05);
+}
+
+#play-video-button svg {
+  width: 24px;
+  height: 24px;
+}
+
+#continue-without-video,
+#continue-with-images {
+  background-color: #ff0000;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+#continue-without-video:hover,
+#continue-with-images:hover {
+  background-color: #cc0000;
+}
+
 @keyframes fadeInAndFall {
   0% {
     opacity: 0;
