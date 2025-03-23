@@ -228,17 +228,102 @@ async function generateImage(prompt) {
     return result;
   } catch (error) {
     console.error('Image generation failed:', error);
-    throw error;
+    // Create a fallback image with placeholder text for visualization
+    return {
+      url: createPlaceholderImage(prompt)
+    };
   }
+}
+
+// Create a placeholder SVG image when generation fails
+function createPlaceholderImage(text) {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450">
+      <rect width="800" height="450" fill="#333"/>
+      <text x="400" y="225" font-family="Arial" font-size="24" fill="#fff" text-anchor="middle">${text}</text>
+    </svg>
+  `;
+  const base64 = btoa(svg);
+  return `data:image/svg+xml;base64,${base64}`;
 }
 
 // Display a falling image on the overlay
 function displayFallingImage(imageUrl, text) {
-  if (!imageUrl) return; // Skip if image generation failed
+  if (!imageUrl) {
+    // If no image URL, create a placeholder
+    imageUrl = createPlaceholderImage(text);
+  }
   
   const imageOverlay = document.getElementById('image-overlay');
   const img = document.createElement('img');
-  img.src = imageUrl;
+  
+  // Handle different types of URLs
+  if (imageUrl.startsWith('data:')) {
+    img.src = imageUrl;
+    applyImageStyles(img, text, imageOverlay);
+  } else {
+    // Try to load the image, with multiple CORS proxies as fallbacks
+    loadImageWithFallbacks(img, imageUrl, text, imageOverlay);
+  }
+}
+
+// Try multiple CORS proxies until one works
+async function loadImageWithFallbacks(img, originalUrl, text, imageOverlay) {
+  const corsProxies = [
+    url => url, // Try direct URL first
+    url => `https://cors-anywhere.herokuapp.com/${url}`,
+    url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    url => `https://thingproxy.freeboard.io/fetch/${url}`,
+    url => `https://crossorigin.me/${url}`
+  ];
+  
+  // Set a placeholder while we try to load the image
+  img.src = createPlaceholderImage('Loading...');
+  applyImageStyles(img, text, imageOverlay);
+  
+  let loaded = false;
+  
+  for (const proxyFn of corsProxies) {
+    if (loaded) break;
+    
+    try {
+      const proxiedUrl = proxyFn(originalUrl);
+      
+      // Try to fetch the image through the proxy
+      const response = await fetch(proxiedUrl, { 
+        mode: 'cors',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      }).catch(() => null);
+      
+      if (response && response.ok) {
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        
+        img.onload = () => {
+          loaded = true;
+          URL.revokeObjectURL(img.src); // Clean up the object URL
+        };
+        
+        img.src = objectUrl;
+        return;
+      }
+    } catch (error) {
+      console.warn(`Proxy failed: ${error.message}`);
+      // Continue to next proxy
+    }
+  }
+  
+  // If all proxies fail, use a placeholder
+  if (!loaded) {
+    img.src = createPlaceholderImage(text);
+    console.warn('All image loading attempts failed, using placeholder');
+  }
+}
+
+// Apply common styles and add to DOM
+function applyImageStyles(img, text, imageOverlay) {
   img.alt = text;
   img.className = 'falling-image';
   
