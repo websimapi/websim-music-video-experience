@@ -27,6 +27,22 @@
     </div>
   </div>
 
+  <script type="module">
+    // This ensures that any audio context is only created after user interaction
+    document.getElementById('start-button').addEventListener('click', function() {
+      // Create AudioContext if needed after user interaction
+      window.AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!window.audioContext) {
+        window.audioContext = new AudioContext();
+      }
+      
+      // Resume if it was suspended
+      if (window.audioContext && window.audioContext.state === 'suspended') {
+        window.audioContext.resume();
+      }
+    });
+  </script>
+  
   <script src="config.js" type="module"></script>
   <script src="transcript.js" type="module"></script>
   <script src="app.js" type="module"></script>

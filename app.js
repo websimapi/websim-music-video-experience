@@ -111,49 +111,55 @@ function startVisualization() {
 
 // Generate AI images for each transcript entry
 async function generateImages() {
-  const totalLines = transcript.length;
-  let completedLines = 0;
-  
-  // Setup progress tracking
-  progressInterval = setInterval(() => {
-    const fakeProgress = Math.min((completedLines / totalLines) * 100, 95);
-    document.getElementById('progress-bar').style.width = `${fakeProgress}%`;
-    document.getElementById('status-text').innerText = 
-      `Generating visualizations... ${completedLines}/${totalLines}`;
-  }, 500);
-  
-  // Generate images sequentially with rate limiting
-  for (const line of transcript) {
-    try {
-      const result = await generateImage(line.text);
-      generatedImages.push({
-        url: result.url,
-        time: line.time,
-        text: line.text
-      });
-      
-      completedLines++;
-      
-      // Rate limit: one image every 3 seconds
-      await new Promise(resolve => setTimeout(resolve, config.imageGenRate));
-    } catch (error) {
-      console.error('Failed to generate image:', error);
-      // Add a placeholder in case of failure
-      generatedImages.push({
-        url: null,
-        time: line.time,
-        text: line.text
-      });
-      completedLines++;
+  try {
+    const totalLines = transcript.length;
+    let completedLines = 0;
+    
+    // Setup progress tracking
+    progressInterval = setInterval(() => {
+      const fakeProgress = Math.min((completedLines / totalLines) * 100, 95);
+      document.getElementById('progress-bar').style.width = `${fakeProgress}%`;
+      document.getElementById('status-text').innerText = 
+        `Generating visualizations... ${completedLines}/${totalLines}`;
+    }, 500);
+    
+    // Generate images sequentially with rate limiting
+    for (const line of transcript) {
+      try {
+        const result = await generateImage(line.text);
+        generatedImages.push({
+          url: result.url,
+          time: line.time,
+          text: line.text
+        });
+        
+        completedLines++;
+        
+        // Rate limit: one image every 3 seconds
+        await new Promise(resolve => setTimeout(resolve, config.imageGenRate));
+      } catch (error) {
+        console.error('Failed to generate image:', error);
+        // Add a placeholder in case of failure
+        generatedImages.push({
+          url: null,
+          time: line.time,
+          text: line.text
+        });
+        completedLines++;
+      }
     }
+    
+    // Complete the progress bar
+    document.getElementById('progress-bar').style.width = '100%';
+    document.getElementById('status-text').innerText = 'Ready to play!';
+    
+    clearInterval(progressInterval);
+    generatingComplete = true;
+  } catch (error) {
+    console.error('Error in generateImages:', error);
+    document.getElementById('status-text').innerText = 'Error generating images. Please try again.';
+    clearInterval(progressInterval);
   }
-  
-  // Complete the progress bar
-  document.getElementById('progress-bar').style.width = '100%';
-  document.getElementById('status-text').innerText = 'Ready to play!';
-  
-  clearInterval(progressInterval);
-  generatingComplete = true;
 }
 
 // Generate a single image using AI
