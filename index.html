@@ -4,6 +4,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Music Video Experience</title>
   <link rel="stylesheet" href="styles.css">
+  <script>
+    // Initialize audio context early but don't start it
+    window.AudioContext = window.AudioContext || window.webkitAudioContext;
+    window.initAudio = function() {
+      if (!window.audioContext) {
+        window.audioContext = new AudioContext();
+      }
+      if (window.audioContext.state === 'suspended') {
+        window.audioContext.resume();
+      }
+      return true;
+    };
+  </script>
 </head>
 <body>
   <div id="container">
@@ -30,17 +43,14 @@
   <script type="module">
     // This ensures that any audio context is only created after user interaction
     document.getElementById('start-button').addEventListener('click', function() {
-      // Create AudioContext if needed after user interaction
-      window.AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!window.audioContext) {
-        window.audioContext = new AudioContext();
-      }
-      
-      // Resume if it was suspended
-      if (window.audioContext && window.audioContext.state === 'suspended') {
-        window.audioContext.resume();
-      }
+      // Create AudioContext after user interaction
+      window.initAudio();
     });
+    
+    // Also handle clicks anywhere on the document to unlock audio
+    document.addEventListener('click', function() {
+      window.initAudio();
+    }, { once: true });
   </script>
   
   <script src="config.js" type="module"></script>

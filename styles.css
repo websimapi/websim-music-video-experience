@@ -89,6 +89,12 @@ body {
   margin-top: 1rem;
 }
 
+#status-text.clickable {
+  cursor: pointer;
+  text-decoration: underline;
+  color: #ff0000;
+}
+
 #video-container {
   position: absolute;
   width: 100%;

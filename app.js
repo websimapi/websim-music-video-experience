@@ -169,6 +169,9 @@ async function generateImages() {
     // Generate images sequentially with rate limiting
     for (const line of transcript) {
       try {
+        // Add a debug log to see progress
+        console.log(`Generating image for: "${line.text}"`);
+        
         const result = await generateImage(line.text);
         generatedImages.push({
           url: result.url,
@@ -188,9 +191,9 @@ async function generateImages() {
         await new Promise(resolve => setTimeout(resolve, config.imageGenRate));
       } catch (error) {
         console.error('Failed to generate image:', error);
-        // Add a placeholder in case of failure
+        // Add a placeholder in case of failure and continue
         generatedImages.push({
-          url: null,
+          url: createPlaceholderImage(line.text),
           time: line.time,
           text: line.text
         });
@@ -207,7 +210,14 @@ async function generateImages() {
     return true;
   } catch (error) {
     console.error('Error in generateImages:', error);
-    document.getElementById('status-text').innerText = 'Error generating images. Please try again.';
+    document.getElementById('status-text').innerText = 'Error generating images. Click to continue anyway.';
+    document.getElementById('status-text').style.cursor = 'pointer';
+    document.getElementById('status-text').addEventListener('click', () => {
+      clearInterval(progressInterval);
+      document.getElementById('loading-screen').style.display = 'none';
+      document.getElementById('video-container').style.display = 'block';
+      setupCustomVideoPlayer();
+    });
     clearInterval(progressInterval);
     throw error;
   }
@@ -219,13 +229,39 @@ async function generateImage(prompt) {
     // Create a more descriptive prompt for better image generation
     const enhancedPrompt = `Artistic visualization of: "${prompt}" from reggae song Looking Up by Stick Figure, dreamy artistic style, vibrant, ocean and sky themes`;
     
-    // Call the AI image generation
-    const result = await websim.imageGen({
-      prompt: enhancedPrompt,
-      aspect_ratio: "16:9"
-    });
+    // Call the AI image generation with fallback
+    let attempts = 0;
+    let maxAttempts = 3;
+    let result;
     
-    return result;
+    while (attempts < maxAttempts) {
+      try {
+        console.log(`Attempt ${attempts+1} to generate image for: "${prompt}"`);
+        result = await websim.imageGen({
+          prompt: enhancedPrompt,
+          aspect_ratio: "16:9"
+        });
+        
+        if (result && result.url) {
+          console.log(`Successfully generated image: ${result.url.substring(0, 50)}...`);
+          return result;
+        }
+      } catch (err) {
+        console.warn(`Image generation attempt ${attempts+1} failed:`, err);
+      }
+      attempts++;
+      
+      // Wait a second before retry
+      if (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+    
+    // If all attempts fail, return a placeholder
+    console.warn(`All ${maxAttempts} attempts failed to generate image for: "${prompt}"`);
+    return {
+      url: createPlaceholderImage(prompt)
+    };
   } catch (error) {
     console.error('Image generation failed:', error);
     // Create a fallback image with placeholder text for visualization
