@@ -1,44 +1,12 @@
 import { config } from './config.js';
 import { transcript } from './transcript.js';
 
-let player;
 let generatedImages = [];
 let currentImageIndex = 0;
 let progressInterval;
 let generatingComplete = false;
-
-// Make the YouTube callback function globally accessible
-window.onYouTubeIframeAPIReady = function() {
-  player = new YT.Player('youtube-player', {
-    height: '100%',
-    width: '100%',
-    videoId: config.videoId,
-    playerVars: {
-      'autoplay': 0,
-      'controls': 0,
-      'showinfo': 0,
-      'rel': 0,
-      'fs': 1,
-      'modestbranding': 1
-    },
-    events: {
-      'onReady': onPlayerReady,
-      'onStateChange': onPlayerStateChange
-    }
-  });
-};
-
-function onPlayerReady(event) {
-  // Player is ready but we don't autoplay yet
-  console.log('Player ready');
-}
-
-function onPlayerStateChange(event) {
-  // When video starts playing
-  if (event.data === YT.PlayerState.PLAYING) {
-    scheduleImageFalling();
-  }
-}
+let videoPlayer;
+let videoStarted = false;
 
 // Start the generation process
 document.getElementById('start-button').addEventListener('click', async () => {
@@ -50,9 +18,96 @@ document.getElementById('start-button').addEventListener('click', async () => {
   document.getElementById('loading-screen').style.display = 'none';
   document.getElementById('video-container').style.display = 'block';
   
-  // Start the video after generation is complete
-  player.playVideo();
+  // Setup the video player
+  setupCustomVideoPlayer();
 });
+
+// Setup a custom video player instead of YouTube iframe
+function setupCustomVideoPlayer() {
+  const videoContainer = document.getElementById('video-player');
+  
+  // Create video element
+  videoPlayer = document.createElement('video');
+  videoPlayer.id = 'music-video';
+  videoPlayer.width = '100%';
+  videoPlayer.height = '100%';
+  videoPlayer.controls = false;
+  videoPlayer.style.width = '100%';
+  videoPlayer.style.height = '100%';
+  videoPlayer.style.objectFit = 'cover';
+  
+  // Create a source element
+  const source = document.createElement('source');
+  source.src = `https://www.youtube-nocookie.com/embed/${config.videoId}?autoplay=1&showinfo=0&rel=0&fs=1&modestbranding=1`;
+  source.type = 'video/mp4';
+  
+  // Error handling for video
+  videoPlayer.onerror = function() {
+    // If video fails, show a message and placeholder
+    videoContainer.innerHTML = `
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: #000;">
+        <h2>Video playback unavailable</h2>
+        <p style="margin-top: 1rem;">The music visualization will continue with images only.</p>
+      </div>
+    `;
+    // Start the visualization anyway
+    startVisualization();
+  };
+  
+  // When video is ready to play
+  videoPlayer.onloadeddata = function() {
+    videoPlayer.muted = false;
+    videoPlayer.play().then(() => {
+      startVisualization();
+    }).catch(err => {
+      console.error("Video play failed:", err);
+      // Start visualization anyway
+      startVisualization();
+    });
+  };
+  
+  // Append to the container
+  videoPlayer.appendChild(source);
+  videoContainer.appendChild(videoPlayer);
+  
+  // Alternative approach if the video doesn't load properly
+  // Create a fallback div that simulates the video timing
+  const fallbackTimer = document.createElement('div');
+  fallbackTimer.style.display = 'none';
+  videoContainer.appendChild(fallbackTimer);
+  
+  // Try to play the video, if it fails use the fallback timer
+  setTimeout(() => {
+    if (!videoStarted) {
+      console.log("Using fallback timer for visualization");
+      fallbackTimer.style.display = 'block';
+      videoPlayer.style.display = 'none';
+      startVisualization();
+    }
+  }, 3000);
+}
+
+function startVisualization() {
+  if (videoStarted) return;
+  videoStarted = true;
+  
+  // Start scheduling image falling based on transcript timestamps
+  let currentTime = 0;
+  const intervalId = setInterval(() => {
+    currentTime += 1;
+    
+    // Check if there are images that should appear at this time
+    const imagesToShow = generatedImages.filter(img => img.time === currentTime);
+    imagesToShow.forEach(image => {
+      displayFallingImage(image.url, image.text);
+    });
+    
+    // Stop when we've reached the end of the song
+    if (currentTime >= transcript[transcript.length - 1].time + 10) {
+      clearInterval(intervalId);
+    }
+  }, 1000);
+}
 
 // Generate AI images for each transcript entry
 async function generateImages() {
@@ -118,15 +173,6 @@ async function generateImage(prompt) {
     console.error('Image generation failed:', error);
     throw error;
   }
-}
-
-// Schedule images to fall based on their timestamp in the video
-function scheduleImageFalling() {
-  generatedImages.forEach((image, index) => {
-    setTimeout(() => {
-      displayFallingImage(image.url, image.text);
-    }, (image.time - player.getCurrentTime()) * 1000);
-  });
 }
 
 // Display a falling image on the overlay

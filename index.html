@@ -16,7 +16,7 @@
     </div>
     
     <div id="video-container" style="display: none;">
-      <div id="youtube-player"></div>
+      <div id="video-player"></div>
       <div id="image-overlay"></div>
     </div>
     
@@ -27,13 +27,6 @@
     </div>
   </div>
 
-  <script>
-    // Load the YouTube IFrame Player API code asynchronously
-    var tag = document.createElement('script');
-    tag.src = "https://www.youtube.com/iframe_api";
-    var firstScriptTag = document.getElementsByTagName('script')[0];
-    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-  </script>
   <script src="config.js" type="module"></script>
   <script src="transcript.js" type="module"></script>
   <script src="app.js" type="module"></script>
